@@ -54,8 +54,32 @@ def StartScan(duration):
             print "Device %s (%s), RSSI=%d dB" % (dev.addr, dev.addrType, dev.rssi)
             name = dev.getValueText(0x09)
             print "Name: %s" % name
-    for dev in devices:
-            getSensorData(dev)
+
+            ManufString = dev.getValueText(0xFF)
+            if("4e4f4b" in ManufString):
+                myString = ""
+
+                time = os.popen("date")
+                for i in time.readlines():
+                    myString += i
+                    myString = myString.rstrip()
+
+                sensor_array = bytearray.fromhex(ManufString)
+                voltage = int(sensor_array[4] << 8)
+                voltage += int(sensor_array[3])
+                myString += ", " + str(voltage)
+
+                if(sensor_array[5] == 0x2b):
+                    temp = float(sensor_array[6]/2.0)
+                else:
+                    temp = float(-(sensor_array[6]/2.0))
+                myString += ", " + str(temp)
+
+                myString += ", %s" % name
+                myString += "\n" 
+                #print myString
+                myFile.write(myString)
+
 
 def main():
     global myFile
