@@ -80,6 +80,8 @@ def StartScan(duration):
                 #print myString
                 myFile.write(myString)
 
+    StartScan(duration)
+
 
 def main():
     global myFile
