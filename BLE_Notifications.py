@@ -2,8 +2,10 @@
 
 #This code scans for BLE advertising and decodes sensor data from a certain type of sensor module prototype
 import sys
-from bluepy.btle import Scanner, DefaultDelegate, Peripheral, BTLEException, Service
+from bluepy.btle import Scanner, DefaultDelegate, Peripheral, BTLEException, Service, Characteristic
 import os 
+
+import time
 
 def getSensorData(device):
         ManufString = device.getValueText(0xFF)
@@ -33,15 +35,17 @@ def getSensorData(device):
             myFile.write(myString)
             StartScan(3)
 
-class ScanDelegate(DefaultDelegate):
+class SensorDelegate(DefaultDelegate):
+    message = 0
+
     def __init__(self):
         DefaultDelegate.__init__(self)
 
-  #  def handleDiscovery(self, dev, isNewDev, isNewData):
-       # if isNewDev:
-           # print "Discovered device", dev.addr
-       # elif isNewData:
-           # print "Received new data from", dev.addr
+    def handleNotification(self, cHandle, data):
+        self.message = data
+
+    def readNotification(self):
+        return self.message
 
 class SensorModule:
     def __init__(self, name, MAC):
@@ -49,18 +53,35 @@ class SensorModule:
         self.MAC = MAC
 
 def StartScan(duration):
-    scanner = Scanner().withDelegate(ScanDelegate())
+    scanner = Scanner().withDelegate(SensorDelegate())
     devices = scanner.scan(duration)
 
     for dev in devices:
-            if("4e4f4b" in dev.getValueText(0xFF)):
-                target = SensorModule(dev.getValueText(0x09), dev.addr)
-                print "Battery module found, name = %s MAC: %s" % (target.name, target.MAC)
-                return target
+        if("4e4f4b" in dev.getValueText(0xFF)):
+            target = SensorModule(dev.getValueText(0x09), dev.addr)
+            print "Battery module found, name = %s MAC: %s" % (target.name, target.MAC)
+            return target
 
-def DiscoverCharacteristics(peripheral):
-    peripheral.getServices()
-    print peripheral.services
+def discoverCharacteristics(peripheral):
+    for service in peripheral.getServices():
+        print service
+        service.getCharacteristics()
+
+
+def enableNotification(peripheral):
+    #this enables the voltage notifications
+    peripheral.writeCharacteristic(0x0F, '\x01')
+
+
+def disableNotification(peripheral):
+    #this enables the voltage notifications
+    peripheral.writeCharacteristic(0x0F, '\x00')
+
+def loopNotifications(peripheral):
+    peripheral.waitForNotifications(1.0)
+    print str(peripheral.delegate.readNotification())
+
+    loopNotifications(peripheral)
 
 def main():
     global myFile
@@ -75,13 +96,16 @@ def main():
     print "Target found, proceeding to connect!"
     try:
         slave = Peripheral(target.MAC, "random")
+        slave.setDelegate(SensorDelegate())
     except BTLEException, e:
         print "Connection failed!"
         print e.code
         print e.message
         return
 
-    DiscoverCharacteristics(slave)
+    discoverCharacteristics(slave)
+    enableNotification(slave)
+
+    loopNotifications(slave)
 
 main()
-
