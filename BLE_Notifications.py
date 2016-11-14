@@ -55,12 +55,13 @@ class SensorModule:
 def StartScan(duration):
     scanner = Scanner().withDelegate(SensorDelegate())
     devices = scanner.scan(duration)
-
+    
     for dev in devices:
-        if("4e4f4b" in dev.getValueText(0xFF)):
-            target = SensorModule(dev.getValueText(0x09), dev.addr)
-            print "Battery module found, name = %s MAC: %s" % (target.name, target.MAC)
-            return target
+        if(dev.getValueText(0xFF)):
+            if("4e4f4b" in dev.getValueText(0xFF)):
+                target = SensorModule(dev.getValueText(0x09), dev.addr)
+                print "Battery module found, name = %s MAC: %s" % (target.name, target.MAC)
+                return target
 
 def discoverCharacteristics(peripheral):
     for service in peripheral.getServices():
