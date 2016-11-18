@@ -79,10 +79,12 @@ def disableNotification(peripheral):
     peripheral.writeCharacteristic(0x0F, '\x00')
 
 def loopNotifications(peripheral):
-    peripheral.waitForNotifications(1.0)
-    print str(peripheral.delegate.readNotification())
-
-    loopNotifications(peripheral)
+    i = 0
+    while (i < 300):
+        peripheral.waitForNotifications(0.3)
+        notification =  str(peripheral.delegate.readNotification())
+        print notification.encode("hex")
+        i += 1
 
 def main():
     global myFile
@@ -96,7 +98,9 @@ def main():
 
     print "Target found, proceeding to connect!"
     try:
-        slave = Peripheral(target.MAC, "random")
+        #slave = Peripheral(target.MAC, "random")
+        slave = Peripheral(target.MAC, "public")
+       
         slave.setDelegate(SensorDelegate())
     except BTLEException, e:
         print "Connection failed!"
@@ -104,6 +108,7 @@ def main():
         print e.message
         return
 
+    time.sleep(1)
     discoverCharacteristics(slave)
     enableNotification(slave)
 
