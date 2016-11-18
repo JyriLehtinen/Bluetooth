@@ -79,39 +79,52 @@ def disableNotification(peripheral):
     peripheral.writeCharacteristic(0x0F, '\x00')
 
 def loopNotifications(peripheral):
+    myString = ""
+    time = os.popen("date")
+    for c in time.readlines():
+        myString += c
+
+        myString = myString.rstrip()
+    myFile.write(myString + '\n')
+
     i = 0
     while (i < 300):
         peripheral.waitForNotifications(0.3)
-        notification =  str(peripheral.delegate.readNotification())
-        print notification.encode("hex")
-        i += 1
+        notification =  peripheral.delegate.readNotification()
+        #print notification.encode("hex")
+        myFile.write(notification.encode("hex") + '\n')
 
+        i += 1
+    myFile.flush()
+    peripheral.disconnect()
+    
 def main():
     global myFile
-    myFile = open("ScannedData.txt", "a" )
-    print "Scanning for Battery Modules."
-    target = StartScan(3)
-    while (target is None):
-        sys.stdout.write('.')
-        sys.stdout.flush()
+    myFile = open("SensorData_Streamed.txt", "a" )
+    while(1):
+        print "Scanning for Battery Modules."
         target = StartScan(3)
+        while (target is None):
+            sys.stdout.write('.')
+            sys.stdout.flush()
+            target = StartScan(3)
 
-    print "Target found, proceeding to connect!"
-    try:
-        #slave = Peripheral(target.MAC, "random")
-        slave = Peripheral(target.MAC, "public")
+        print "Target found, proceeding to connect!"
+        try:
+            #slave = Peripheral(target.MAC, "random")
+            slave = Peripheral(target.MAC, "public")
        
-        slave.setDelegate(SensorDelegate())
-    except BTLEException, e:
-        print "Connection failed!"
-        print e.code
-        print e.message
-        return
+            slave.setDelegate(SensorDelegate())
+        except BTLEException, e:
+            print "Connection failed!"
+            print e.code
+            print e.message
+            return
 
-    time.sleep(1)
-    discoverCharacteristics(slave)
-    enableNotification(slave)
+        discoverCharacteristics(slave)
+        enableNotification(slave)
 
-    loopNotifications(slave)
+        loopNotifications(slave)
+        print "Disconnected"
 
 main()
