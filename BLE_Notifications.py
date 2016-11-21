@@ -92,12 +92,31 @@ def loopNotifications(peripheral):
         peripheral.waitForNotifications(0.3)
         notification =  peripheral.delegate.readNotification()
         #print notification.encode("hex")
-        myFile.write(notification.encode("hex") + '\n')
+
+        decodeDatShit(notification.encode("hex"))
+
+        myFile.write(decodeDatShit(notification.encode("hex")) + '\n')
 
         i += 1
     myFile.flush()
     peripheral.disconnect()
+
+def decodeDatShit(hexline):
+    returnString = ""
+    hex_array = bytearray.fromhex(hexline)
     
+    seconds = int(hex_array[0] + (hex_array[1] << 8) + (hex_array[2] << 16) + (hex_array[3] << 24))
+    
+    voltage = int(hex_array[4] + (hex_array[5] << 8))
+
+    temperature = float((hex_array[6] & 0x7F))  
+    if(hex_array[7] & 0x80):
+        temperature += 0.5
+
+    #print "Time: %d\tVoltage: %d\tTemp: %.1f" % (seconds, voltage, temperature)
+    returnString =  "Time: %d\tVoltage: %d\tTemp: %.1f" % (seconds, voltage, temperature)
+    return returnString
+
 def main():
     global myFile
     myFile = open("SensorData_Streamed.txt", "a" )
