@@ -63,6 +63,18 @@ def StartScan(duration):
                 print "Battery module found, name = %s MAC: %s" % (target.name, target.MAC)
                 return target
 
+def SetTxLen(peripheral, tx_len):
+    command = bytearray([0x42, 0x00, 0x00])
+    command[1] = tx_len & 0x00FF
+    command[2] = tx_len & 0xFF00
+    peripheral.writeCharacteristic(0x15, command)
+
+def SetSampleInterval(peripheral, interval):
+    command = bytearray([0x49, 00, 00])
+    command[1] = interval & 0x00FF
+    command[2] = interval & 0xFF00
+    peripheral.writeCharacteristic(0x15, '\x49\x00\x01')
+
 def discoverCharacteristics(peripheral):
     for service in peripheral.getServices():
         print service
@@ -88,10 +100,10 @@ def loopNotifications(peripheral):
     myFile.write(myString + '\n')
 
     i = 0
-    while (i < 300):
-        peripheral.waitForNotifications(0.3)
+    while (peripheral.waitForNotifications(0.5)):
+        #peripheral.waitForNotifications(0.3)
         notification =  peripheral.delegate.readNotification()
-        #print notification.encode("hex")
+        print notification.encode("hex")
 
         decodeDatShit(notification.encode("hex"))
 
@@ -99,7 +111,6 @@ def loopNotifications(peripheral):
 
         i += 1
     myFile.flush()
-    peripheral.disconnect()
 
 def decodeDatShit(hexline):
     returnString = ""
@@ -138,12 +149,15 @@ def main():
             print "Connection failed!"
             print e.code
             print e.message
-            return
+            wait(3.0)
+            continue
 
         discoverCharacteristics(slave)
         enableNotification(slave)
 
         loopNotifications(slave)
+        SetTxLen(slave, 120)
+        slave.disconnect()
         print "Disconnected"
 
 main()
