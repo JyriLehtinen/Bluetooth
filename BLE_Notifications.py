@@ -74,14 +74,14 @@ def StartScan(duration):
 def SetTxLen(peripheral, tx_len):
     command = bytearray([0x42, 0x00, 0x00])
     command[1] = tx_len & 0x00FF
-    command[2] = tx_len & 0xFF00
+    command[2] = (tx_len & 0xFF00) >> 8
     peripheral.writeCharacteristic(0x15, command)
 
 def SetSampleInterval(peripheral, interval):
     command = bytearray([0x49, 00, 00])
     command[1] = interval & 0x00FF
-    command[2] = interval & 0xFF00
-    peripheral.writeCharacteristic(0x15, '\x49\x00\x01')
+    command[2] = (interval & 0xFF00) >> 8
+    peripheral.writeCharacteristic(0x15, command) 
 
 def discoverCharacteristics(peripheral):
     for service in peripheral.getServices():
@@ -146,6 +146,14 @@ def decodeData(hexline, sensors_mounted):
     #print "Time: %d\tVoltage: %d\tTemp: %.1f" % (seconds, voltage, temperature)
     return returnString
 
+def adjustConfigurations(slave, sensors):
+    if(sensors & 0x03):
+        SetTxLen(slave, 30)
+        SetSampleInterval(slave, 10)
+    elif(sensors & 0x0500):
+        SetTxLen(slave, 240)
+        SetSampleInterval(slave, 1)
+
 def main():
     global myFile
     myFile = open("SensorData_Streamed.txt", "a" )
@@ -174,7 +182,7 @@ def main():
         enableNotification(slave)
 
         loopNotifications(slave, target.name, target.sensors)
-        SetTxLen(slave, 120)
+        adjustConfigurations(slave, target.sensors)
         slave.disconnect()
         print "Disconnected"
 
