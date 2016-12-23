@@ -48,9 +48,10 @@ class SensorDelegate(DefaultDelegate):
         return self.message
 
 class SensorModule:
-    def __init__(self, name, MAC):
+    def __init__(self, name, MAC, sensors):
         self.name = name
         self.MAC = MAC
+        self.sensors = sensors
 
 def StartScan(duration):
     scanner = Scanner().withDelegate(SensorDelegate())
@@ -59,8 +60,15 @@ def StartScan(duration):
     for dev in devices:
         if(dev.getValueText(0xFF)):
             if("4e4f4b" in dev.getValueText(0xFF)):
-                target = SensorModule(dev.getValueText(0x09), dev.addr)
-                print "Battery module found, name = %s MAC: %s" % (target.name, target.MAC)
+
+                sensor_array = bytearray.fromhex(dev.getValueText(0xFF))
+                sensors_mounted = int(sensor_array[7])
+                sensors_mounted += int(sensor_array[8] << 8)
+                sensors_mounted += int(sensor_array[9] << 16)
+                sensors_mounted += int(sensor_array[10] << 24)
+
+                target = SensorModule(dev.getValueText(0x09), dev.addr, sensors_mounted)
+                print "Battery module found, name = %s MAC: %s, sensors %d" % (target.name, target.MAC, target.sensors)
                 return target
 
 def SetTxLen(peripheral, tx_len):
@@ -90,7 +98,7 @@ def disableNotification(peripheral):
     #this enables the voltage notifications
     peripheral.writeCharacteristic(0x0F, '\x00')
 
-def loopNotifications(peripheral):
+def loopNotifications(peripheral, name, sensors):
     myString = ""
     time = os.popen("date")
     for c in time.readlines():
@@ -98,6 +106,7 @@ def loopNotifications(peripheral):
 
         myString = myString.rstrip()
     myFile.write(myString + '\n')
+    myFile.write("Module name: %s\n" % (name))
 
     i = 0
     while (peripheral.waitForNotifications(0.5)):
@@ -105,34 +114,43 @@ def loopNotifications(peripheral):
         notification =  peripheral.delegate.readNotification()
         print notification.encode("hex")
 
-        decodeDatShit(notification.encode("hex"))
 
-        myFile.write(decodeDatShit(notification.encode("hex")) + '\n')
+        myFile.write(decodeData(notification.encode("hex"), sensors) + '\n')
 
         i += 1
     myFile.flush()
 
-def decodeDatShit(hexline):
+def decodeData(hexline, sensors_mounted):
     returnString = ""
     hex_array = bytearray.fromhex(hexline)
-    
     seconds = int(hex_array[0] + (hex_array[1] << 8) + (hex_array[2] << 16) + (hex_array[3] << 24))
-    
-    voltage = int(hex_array[4] + (hex_array[5] << 8))
+    returnString = "Time: %d\t" % (seconds)
 
-    temperature = float((hex_array[6] & 0x7F))  
-    if(hex_array[7] & 0x80):
-        temperature += 0.5
+    if(sensors_mounted & 0x01):
+        temperature = float(hex_array[4] + (hex_array[5] << 8))
+        returnString += "Temperature: %.1f\t" % (temperature/10.0)
 
+    if(sensors_mounted & 0x02):
+        humidity = float(hex_array[6] + (hex_array[7] << 8))
+        returnString += "Humidity: %.1f%%\t" % (humidity/10.0)
+
+    if(sensors_mounted & 0x0100):
+        voltage = int(hex_array[4] + (hex_array[5] << 8))
+        returnString += "Voltage: %d\t" % (voltage)
+
+    if(sensors_mounted & 0x0400):
+        temperature = float((hex_array[6] & 0x7F))  
+        if(hex_array[7] & 0x80):
+            temperature += 0.5
+        returnString += "Temp: %.1f" % (temperature)
     #print "Time: %d\tVoltage: %d\tTemp: %.1f" % (seconds, voltage, temperature)
-    returnString =  "Time: %d\tVoltage: %d\tTemp: %.1f" % (seconds, voltage, temperature)
     return returnString
 
 def main():
     global myFile
     myFile = open("SensorData_Streamed.txt", "a" )
     while(1):
-        print "Scanning for Battery Modules."
+        print "Scanning for Sensor Modules."
         target = StartScan(3)
         while (target is None):
             sys.stdout.write('.')
@@ -149,13 +167,13 @@ def main():
             print "Connection failed!"
             print e.code
             print e.message
-            wait(3.0)
+            time.sleep(3)
             continue
 
         discoverCharacteristics(slave)
         enableNotification(slave)
 
-        loopNotifications(slave)
+        loopNotifications(slave, target.name, target.sensors)
         SetTxLen(slave, 120)
         slave.disconnect()
         print "Disconnected"
