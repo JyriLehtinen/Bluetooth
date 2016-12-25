@@ -21,15 +21,23 @@ class LedController:
         self.device.connect(self.MAC, "public", None)
 
     def setColour(self, newColour):
-        self.rgbw[0] = 0xFF & newColour
-        self.device.writeCharacteristic(37, chr(self.rgbw[0]))
-        self.rgbw[1] = 0xFF & (newColour >> 8)
-        self.device.writeCharacteristic(40, chr(self.rgbw[1]))
-        self.rgbw[2] = 0xFF & (newColour >> 16)
-        self.device.writeCharacteristic(43, chr(self.rgbw[2]))
-        self.rgbw[3] = 0xFF & (newColour >> 24)
-        self.device.writeCharacteristic(49, chr(self.rgbw[3]))
+        red = newColour & 0xFF
+        green = (newColour >> 8) & 0xFF
+        blue = (newColour >> 16) & 0xFF
+        white = (newColour >> 24) & 0xFF
 
+        if(~(self.rgbw[0] & red)):
+            self.rgbw[0] = red
+            self.device.writeCharacteristic(37, chr(self.rgbw[0]))
+        if(~(self.rgbw[1] & green)):
+            self.rgbw[1] = green
+            self.device.writeCharacteristic(40, chr(self.rgbw[1]))
+        if(~(self.rgbw[2] & blue)):
+            self.rgbw[2] = blue
+            self.device.writeCharacteristic(43, chr(self.rgbw[2]))
+        if(~(self.rgbw[3] & white)):
+            self.rgbw[3] = white
+            self.device.writeCharacteristic(49, chr(self.rgbw[3]))
 
 class ScanDelegate(DefaultDelegate):
     def __init__(self):
@@ -58,9 +66,11 @@ def StartScan(duration):
 
 def DiscoverLedCharacteristics(peripheral):
     for service in peripheral.getServices():
-        print service
+        #print service
+        i=0
         for characteristic in service.getCharacteristics():
-            print characteristic
+            #print characteristic
+            i=0
 
 def main():
     print "Scanning for RGBW Led controllers..."
@@ -81,11 +91,28 @@ def main():
         main()
 
     DiscoverLedCharacteristics(target.device)
-    
+
+    colour = 0x000000FF
     while(1):
-        target.setColour(0x00000000)
-        time.sleep(1)
-        target.setColour(0xFFFFFFFF)
-        time.sleep(1)
+        target.setColour(colour & 0xFFFFFF)
+        time.sleep(0.1)
+        colour *= 2
+        if(colour == 0x01FE0000):
+            colour = 0x01FE0001
+        if(colour == 0x03FC0002):
+            colour = 0x03FC0003
+        if(colour == 0x07F80006):
+            colour = 0x07F80007
+        if(colour == 0x0FF0000E):
+            colour = 0x0FF0000F
+
+        if(colour == 0x1FE0001E):
+            colour = 0x1FE0001F
+        if(colour == 0x3FC0003E):
+            colour = 0x3FC0003F
+        if(colour == 0x7F80007E):
+            colour = 0x7F80007F
+        if(colour == 0xFF0000FE):
+            colour = 0x000000FF
 
 main()
