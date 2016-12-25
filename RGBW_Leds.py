@@ -6,34 +6,29 @@
 
 import sys
 from bluepy.btle import Scanner, DefaultDelegate, Peripheral, BTLEException, Service
-
-def getSensorData(device):
-        ManufString = device.getValueText(0xFF)
-        if("4e4f4b" in ManufString):
-            sensor_array = bytearray.fromhex(ManufString)
-            voltage = int(sensor_array[4] << 8)
-            voltage += int(sensor_array[3])
-            print voltage
-
-            if(sensor_array[5] == 0x2b):
-                temp = float(sensor_array[6]/2)
-            else:
-                temp = float(-(sensor_array[6]/2))
-            print temp
+import time
 
 class LedController:
-    #bytes representing colour brightness
-    red = 0x00
-    green = 0x00
-    blue = 0x00
-    white = 0x00
-
-    #32 bit number to describe all colours in same variable
-    rgbw = 0x00000000
 
     def __init__(self, name, MAC):
         self.name = name
         self.MAC = MAC
+        self.device = Peripheral()
+            #bytes representing colour brightness
+        self.rgbw = bytearray([00, 00, 00, 00])
+
+    def connect(self):
+        self.device.connect(self.MAC, "public", None)
+
+    def setColour(self, newColour):
+        self.rgbw[0] = 0xFF & newColour
+        self.device.writeCharacteristic(37, chr(self.rgbw[0]))
+        self.rgbw[1] = 0xFF & (newColour >> 8)
+        self.device.writeCharacteristic(40, chr(self.rgbw[1]))
+        self.rgbw[2] = 0xFF & (newColour >> 16)
+        self.device.writeCharacteristic(43, chr(self.rgbw[2]))
+        self.rgbw[3] = 0xFF & (newColour >> 24)
+        self.device.writeCharacteristic(49, chr(self.rgbw[3]))
 
 
 class ScanDelegate(DefaultDelegate):
@@ -62,8 +57,10 @@ def StartScan(duration):
                 return target
 
 def DiscoverLedCharacteristics(peripheral):
-    peripheral.getServices()
-    print peripheral.services
+    for service in peripheral.getServices():
+        print service
+        for characteristic in service.getCharacteristics():
+            print characteristic
 
 def main():
     print "Scanning for RGBW Led controllers..."
@@ -75,10 +72,20 @@ def main():
 
     print "Target acquired, proceeding to connect to %s" % target.name
     try:
-        slave = Peripheral(target.MAC)
-    except BTLEException:
+        target.connect()
+    except BTLEException, e:
         print "Connection failed!"
+        print e.code
+        print e.message
+        time.sleep(3)
+        main()
 
-    DiscoverLedCharacteristics(slave)
+    DiscoverLedCharacteristics(target.device)
+    
+    while(1):
+        target.setColour(0x00000000)
+        time.sleep(1)
+        target.setColour(0xFFFFFFFF)
+        time.sleep(1)
 
 main()
