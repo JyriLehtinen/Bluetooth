@@ -7,34 +7,6 @@ import os
 
 import time
 
-def getSensorData(device):
-        ManufString = device.getValueText(0xFF)
-        if("4e4f4b" in ManufString):
-            myString = ""
-
-            time = os.popen("date")
-            for i in time.readlines():
-                myString += i
-
-                myString = myString.rstrip()
-
-            sensor_array = bytearray.fromhex(ManufString)
-            voltage = int(sensor_array[4] << 8)
-            voltage += int(sensor_array[3])
-            myString += ", " + str(voltage)
-
-            if(sensor_array[5] == 0x2b):
-                temp = float(sensor_array[6]/2.0)
-            else:
-                temp = float(-(sensor_array[6]/2.0))
-            myString += ", " + str(temp)
-
-            myString += ", %s" % device.getValueText(0x09)
-            myString += "\n" 
-            #print myString
-            myFile.write(myString)
-            StartScan(3)
-
 class SensorDelegate(DefaultDelegate):
     message = 0
 
@@ -51,6 +23,7 @@ class SensorModule:
     def __init__(self, name, MAC, sensors):
         self.name = name
         self.MAC = MAC
+        #Describes what sensors are mounted on the unit using a 4B bitfield
         self.sensors = sensors
 
 def StartScan(duration):
@@ -60,8 +33,9 @@ def StartScan(duration):
     for dev in devices:
         if(dev.getValueText(0xFF)):
             if("4e4f4b" in dev.getValueText(0xFF)):
-
+                #This means "NOK" was found in the advertising packet
                 sensor_array = bytearray.fromhex(dev.getValueText(0xFF))
+                #Populate the sensor bitfield according to the advertising packet
                 sensors_mounted = int(sensor_array[7])
                 sensors_mounted += int(sensor_array[8] << 8)
                 sensors_mounted += int(sensor_array[9] << 16)
@@ -71,33 +45,37 @@ def StartScan(duration):
                 print "Battery module found, name = %s MAC: %s, sensors %d" % (target.name, target.MAC, target.sensors)
                 return target
 
+#Changes the number of samples collected before transmitting them (default: 60) by writing 'B' followed by uint16_t in Little Endian
+#Write is done to the configuration characteristic (Handle 0x15)
 def SetTxLen(peripheral, tx_len):
     command = bytearray([0x42, 0x00, 0x00])
     command[1] = tx_len & 0x00FF
     command[2] = (tx_len & 0xFF00) >> 8
     peripheral.writeCharacteristic(0x15, command)
 
+#This function changes the time between two samples (default: 1) by writing 'I' followed by uint16_t in Little Endian
 def SetSampleInterval(peripheral, interval):
     command = bytearray([0x49, 00, 00])
     command[1] = interval & 0x00FF
     command[2] = (interval & 0xFF00) >> 8
     peripheral.writeCharacteristic(0x15, command) 
 
+#This function populates the instance with GATT services and characteristics
 def discoverCharacteristics(peripheral):
     for service in peripheral.getServices():
         print service
         service.getCharacteristics()
 
 
+#Enable notifications in the data_stream characteristics by writing 0x01 to the descriptor (Handle 0x0F)
 def enableNotification(peripheral):
-    #this enables the voltage notifications
     peripheral.writeCharacteristic(0x0F, '\x01')
 
-
+#Disable the data_stream notifications 
 def disableNotification(peripheral):
-    #this enables the voltage notifications
     peripheral.writeCharacteristic(0x0F, '\x00')
 
+#Receive and save the data streamed by the sensor module
 def loopNotifications(peripheral, name, sensors):
     myString = ""
     time = os.popen("date")
@@ -106,11 +84,10 @@ def loopNotifications(peripheral, name, sensors):
 
         myString = myString.rstrip()
     myFile.write(myString + '\n')
-    myFile.write("Module name: %s\n" % (name))
+    myFile.write("Module name: %s\n" % (name)) #Write the current date and time, along with the module name we're connected to
 
     i = 0
-    while (peripheral.waitForNotifications(0.5)):
-        #peripheral.waitForNotifications(0.3)
+    while (peripheral.waitForNotifications(0.5)): #Keep looping until the wait times out (transmission over)
         notification =  peripheral.delegate.readNotification()
         print notification.encode("hex")
 
@@ -120,6 +97,7 @@ def loopNotifications(peripheral, name, sensors):
         i += 1
     myFile.flush()
 
+#Decode the data streamed over BLE accordingly. How to interpret the data depends on the sensors mounted
 def decodeData(hexline, sensors_mounted):
     returnString = ""
     hex_array = bytearray.fromhex(hexline)
