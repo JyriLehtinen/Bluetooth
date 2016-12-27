@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 from bluepy.btle import Scanner, DefaultDelegate
 
 class ScanDelegate(DefaultDelegate):
