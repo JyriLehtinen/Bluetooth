@@ -23,7 +23,9 @@ def StartScan(duration):
             for (adtype, desc, value) in dev.getScanData():
                 print " %s = %s" % (desc, value)
 def main():
+    print("This program will scan for user user defined duration. This process will loop until process is interrupted e.g. with CTRL+C")
     timeout = input("Enter the scan duration in seconds: ")
-    StartScan(timeout)
+    while(1):
+	    StartScan(timeout)
 
 main()
