@@ -6,9 +6,15 @@ from bluepy.btle import Scanner, DefaultDelegate
 
 import os 
 
-def getSensorData(device):
-        ManufString = device.getValueText(0xFF)
-        if("4e4f4b" in ManufString):
+def getVikingData(device):
+        FrameString = device.getValueText(0x16)
+        print ""
+        print "Device: %s, RSSI: %d dBm" % (device.addr, device.rssi)
+        print FrameString
+        FrameArray = bytearray.fromhex(FrameString)
+
+        if(FrameArray[2] == 0x80):
+            print "Viking data!"
             myString = ""
 
             time = os.popen("date")
@@ -17,32 +23,24 @@ def getSensorData(device):
 
                 myString = myString.rstrip()
 
-            sensor_array = bytearray.fromhex(ManufString)
-            voltage = int(sensor_array[4] << 8)
-            voltage += int(sensor_array[3])
-            myString += ", " + str(voltage)
+            acc_rms = int(FrameArray[17] << 8)
+            acc_rms += int(FrameArray[16])
+            myString += ", " + str(acc_rms)
 
-            if(sensor_array[5] == 0x2b):
-                temp = float(sensor_array[6]/2.0)
-            else:
-                temp = float(-(sensor_array[6]/2.0))
-            myString += ", " + str(temp)
-
-            myString += ", %s" % device.getValueText(0x09)
+            myString += ", %s" % device.addr
             myString += "\n" 
             #print myString
             myFile.write(myString)
-            StartScan(3)
 
 class ScanDelegate(DefaultDelegate):
     def __init__(self):
         DefaultDelegate.__init__(self)
 
-    def handleDiscovery(self, dev, isNewDev, isNewData):
-        if isNewDev:
-            print "Discovered device", dev.addr
-        elif isNewData:
-            print "Received new data from", dev.addr
+#def handleDiscovery(self, dev, isNewDev, isNewData):
+#if isNewDev:
+#print "Discovered device", dev.addr
+#elif isNewData:
+#print "Received new data from", dev.addr
 
 
 
@@ -51,34 +49,15 @@ def StartScan(duration):
     devices = scanner.scan(duration)
 
     for dev in devices:
-            print "Device %s (%s), RSSI=%d dB" % (dev.addr, dev.addrType, dev.rssi)
-            name = dev.getValueText(0x09)
-            print "Name: %s" % name
+#print "Device %s (%s), RSSI=%d dB" % (dev.addr, dev.addrType, dev.rssi)
+#try:
+#name = dev.getValueText(0x09)
+#print "Name: %s" % name
+#except:
+#print "No name sent"
 
-            ManufString = dev.getValueText(0xFF)
-            if("4e4f4b" in ManufString):
-                myString = ""
-
-                time = os.popen("date")
-                for i in time.readlines():
-                    myString += i
-                    myString = myString.rstrip()
-
-                sensor_array = bytearray.fromhex(ManufString)
-                voltage = int(sensor_array[4] << 8)
-                voltage += int(sensor_array[3])
-                myString += ", " + str(voltage)
-
-                if(sensor_array[5] == 0x2b):
-                    temp = float(sensor_array[6]/2.0)
-                else:
-                    temp = float(-(sensor_array[6]/2.0))
-                myString += ", " + str(temp)
-
-                myString += ", %s" % name
-                myString += "\n" 
-                #print myString
-                myFile.write(myString)
+            if(dev.getValueText(0x03) == "aafe"):
+                getVikingData(dev)
 
     StartScan(duration)
 
