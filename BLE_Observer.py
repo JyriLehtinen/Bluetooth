@@ -25,9 +25,12 @@ def getVikingData(device):
 
             acc_rms = int(FrameArray[17] << 8)
             acc_rms += int(FrameArray[16])
-            myString += ", " + str(acc_rms)
 
-            myString += ", %s" % device.addr
+            myString += "\t " + str(acc_rms)
+            if(acc_rms < 100):
+                myString += "\t"
+
+            myString += "\t\t %s" % device.addr
             myString += "\n" 
             #print myString
             myFile.write(myString)
