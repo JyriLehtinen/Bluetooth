@@ -62,14 +62,14 @@ def StartScan(duration):
             if(dev.getValueText(0x03) == "aafe"):
                 getVikingData(dev)
 
-    StartScan(duration)
-
 
 def main():
     global myFile
     myFile = open("ScannedData.txt", "a" )
     timeout = input("Enter the scan duration in seconds: ")
-    StartScan(timeout)
+  
+    while(1):
+	    StartScan(timeout)
 
 main()
 
