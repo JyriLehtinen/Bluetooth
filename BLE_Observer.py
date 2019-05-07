@@ -80,14 +80,13 @@ def StartScan(duration):
                 #print myString
                 myFile.write(myString)
 
-    StartScan(duration)
-
 
 def main():
     global myFile
     myFile = open("ScannedData.txt", "a" )
     timeout = input("Enter the scan duration in seconds: ")
-    StartScan(timeout)
+    while(1):
+            StartScan(timeout)
 
 main()
 
